@@ -1,0 +1,71 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres
+    restart: always
+    volumes:
+      - ./nextcloud/db:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=nextcloud
+      - POSTGRES_USER=nextcloud
+      - POSTGRES_PASSWORD=nextcloud
+
+  app:
+    image: nextcloud
+    restart: always
+    ports:
+      - 8080:80
+    volumes:
+      - ./nextcloud/html:/var/www/html
+    environment:
+      - POSTGRES_HOST=db
+      - POSTGRES_DB=nextcloud
+      - POSTGRES_USER=nextcloud
+      - POSTGRES_PASSWORD=nextcloud
+      - NEXTCLOUD_TRUSTED_DOMAINS=cloud.victorphan.net
+      - REDIS_HOST=redis
+    depends_on:
+      - db
+      - redis
+      - coturn
+
+  cron:
+    image: nextcloud
+    restart: always
+    volumes:
+      - ./nextcloud/html:/var/www/html
+    entrypoint: /cron.sh
+    environment: []
+    depends_on:
+      - db
+
+  redis:
+    image: redis:alpine
+    restart: always
+    volumes:
+      - ./nextcloud/redis:/data
+    networks:
+      - nextcloud_network
+
+  coturn:
+    image: coturn/coturn
+    container_name: nextcloud-coturn
+    restart: always
+    environment:
+      - TURN_USER=your_username
+      - TURN_SECRET=your_secret_password
+    ports:
+      - "3478:3478"  # TURN port
+      - "5349:5349"  # TURN over TLS port
+    networks:
+      - nextcloud_network
+
+networks:
+  nextcloud_network:
+    driver: bridge
+
+volumes:
+  nextcloud:
+  db:
+  redis:
